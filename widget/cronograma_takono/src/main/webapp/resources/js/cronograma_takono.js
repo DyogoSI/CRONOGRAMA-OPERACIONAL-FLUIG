@@ -240,6 +240,18 @@ var WidgetCronograma = SuperWidget.extend({
         return "R$ " + valor.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     },
 
+    // Cores fixas por responsável: Cliente = laranja, IRHO = azul, Outros = cinza
+    getResponsavelInfo: function(responsavel) {
+        var normalizado = (responsavel || "").trim().toLowerCase();
+        if (normalizado === "cliente") {
+            return { key: "cliente", textClass: "resp-cliente", bgClass: "bg-cliente", stepClass: "step-cliente" };
+        }
+        if (normalizado === "irho") {
+            return { key: "irho", textClass: "resp-irho", bgClass: "bg-irho", stepClass: "step-irho" };
+        }
+        return { key: "outros", textClass: "resp-outros", bgClass: "bg-outros", stepClass: "step-outros" };
+    },
+
     alternarGrafico: function() {
         var $widgetContext = $("#WidgetCronograma_" + this.instanceId);
         var $carousel = $widgetContext.find(".chart-carousel");
@@ -460,11 +472,12 @@ var WidgetCronograma = SuperWidget.extend({
 
         dadosFiltrados.forEach(function(item, index) {
             var displayId = index + 1; 
-            item.class = "c" + ((index % 8) + 1);
+            var respInfo = that.getResponsavelInfo(item.responsavel);
+            item.class = respInfo.textClass;
 
-            var descricaoHtml = item.desc && item.desc !== "-"
-                ? '<div style="font-size: 11px; color: #64748b; margin-top: 4px; padding-left: 5px; font-weight: 500;">' + item.desc + '</div>'
-                : '';
+            var temDetalhe = item.desc && item.desc !== "-" && String(item.desc).trim() !== "";
+            var detalheAttr = temDetalhe ? ' data-tooltip="' + String(item.desc).replace(/"/g, '&quot;') + '"' : '';
+            var iconeDetalhe = temDetalhe ? ' <i class="fa-regular fa-circle-question detail-hint"></i>' : '';
 
             // Porém na hora de EXIBIR na tabela, puxa o texto real gravado no gestor.
             var labelCompetencia = "-";
@@ -473,12 +486,11 @@ var WidgetCronograma = SuperWidget.extend({
             }
 
             var trHtml = '<tr id="step-' + item.id + '-' + that.instanceId + '" style="cursor: pointer;" title="Clique para focar nos detalhes desta atividade">' +
-                '<td data-label="ETAPA"><span class="step-number">' + displayId + '</span></td>' +
+                '<td data-label="ETAPA"><span class="step-number ' + respInfo.stepClass + '">' + displayId + '</span></td>' +
                 '<td data-label="TAREFAS">' +
-                    '<div class="process-col ' + item.class + '"><i class="' + item.icon + '"></i> ' + item.name + '</div>' +
-                    descricaoHtml +
+                    '<div class="process-col ' + item.class + '"' + detalheAttr + '><i class="' + item.icon + '"></i> ' + item.name + iconeDetalhe + '</div>' +
                 '</td>' +
-                '<td data-label="RESPONSÁVEL">' + item.responsavel + '</td>' +
+                '<td data-label="RESPONSÁVEL"><span class="' + respInfo.textClass + '" style="font-weight: 800;">' + item.responsavel + '</span></td>' +
                 '<td data-label="INÍCIO" class="date-col date-start">' + item.start + '</td>' +
                 '<td data-label="TÉRMINO" class="date-col date-end">' + item.end + '</td>' +
                 '<td data-label="DURAÇÃO">' + item.duration + ' dias</td>' +
@@ -491,7 +503,7 @@ var WidgetCronograma = SuperWidget.extend({
             $tbody.append(trHtml);
 
             var alturaPercent = Math.min(Math.round((item.duration / 12) * 100), 100);
-            var barClass = "bg" + ((index % 8) + 1);
+            var barClass = respInfo.bgClass;
             var tooltipName = item.name.replace(/<br>/g, ' '); 
 
             var barHtml = '<div class="bar-group" data-highlight-step data-step="' + item.id + '" data-original-id="'+ item.id +'">' +
@@ -845,9 +857,13 @@ var WidgetCronograma = SuperWidget.extend({
             } else { $widgetContext.find('.calendar-day.event-end').addClass('dimmed-day'); }
         } else { $widgetContext.find('.calendar-day.event-end').addClass('dimmed-day'); }
         
+        var respInfoSel = this.getResponsavelInfo(item.responsavel);
+        var temDetalheSel = item.desc && item.desc !== "-" && String(item.desc).trim() !== "";
+
         var htmlContexto = '<div class="info-card" style="border-left: 4px solid var(--brand-orange);">' +
             '<div class="info-header"><i class="fa-solid fa-crosshairs"></i> ATIVIDADE SELECIONADA</div>' +
             '<div class="info-body highlight" style="font-size: 13px; font-weight: bold; color: var(--primary-blue); margin-bottom: 12px;">' + item.name + '</div>' +
+            (temDetalheSel ? '<div class="info-body" style="font-size: 11px; color: var(--text-muted); margin-bottom: 12px;"><strong>Detalhe:</strong> ' + item.desc + '</div>' : '') +
             '<button class="btn btn-sm" id="btn-voltar-contexto-' + this.instanceId + '" style="background: var(--primary-blue); color: white; border: none; font-size: 10px; padding: 6px 12px; border-radius: 4px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fa-solid fa-arrow-left"></i> Voltar p/ Visão Geral</button>' +
         '</div>' +
         '<div class="info-card">' +
@@ -860,7 +876,7 @@ var WidgetCronograma = SuperWidget.extend({
         '</div>' +
         '<div class="info-card">' +
             '<div class="info-header"><i class="fa-solid fa-user-tie"></i> RESPONSÁVEL</div>' +
-            '<div class="info-body" style="font-weight: 800; font-size: 13px; color: var(--primary-blue); margin-top: 5px;">' + item.responsavel + '</div>' +
+            '<div class="info-body ' + respInfoSel.textClass + '" style="font-weight: 800; font-size: 13px; margin-top: 5px;">' + item.responsavel + '</div>' +
         '</div>';
         
         $widgetContext.find('.info-footer').hide().html(htmlContexto).fadeIn(300);

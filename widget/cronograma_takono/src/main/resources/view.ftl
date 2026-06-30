@@ -1,3 +1,4 @@
+<!-- cronograma_takono / view.ftl — código completo final -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -54,6 +55,11 @@
 
             <div class="main-content">
                 <div class="left-column">
+                    <div class="responsavel-legend">
+                        <span class="responsavel-legend-item"><span class="responsavel-dot resp-cliente-bg"></span> Cliente</span>
+                        <span class="responsavel-legend-item"><span class="responsavel-dot resp-irho-bg"></span> IRHO</span>
+                        <span class="responsavel-legend-item"><span class="responsavel-dot resp-outros-bg"></span> Takono</span>
+                    </div>
                     <div class="table-container">
                         <table>
                             <thead>
