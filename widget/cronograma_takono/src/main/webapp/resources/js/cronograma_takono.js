@@ -240,7 +240,6 @@ var WidgetCronograma = SuperWidget.extend({
         return "R$ " + valor.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     },
 
-    // Cores fixas por responsável: Cliente = laranja, IRHO = azul, Outros = cinza
     getResponsavelInfo: function(responsavel) {
         var normalizado = (responsavel || "").trim().toLowerCase();
         if (normalizado === "cliente") {
@@ -390,16 +389,20 @@ var WidgetCronograma = SuperWidget.extend({
         var duracaoGeral = 0;
         var mesSelecionado = $("#mesFiltro_" + this.instanceId).val();
         
-        // Mantém o filtro pela DATA FÍSICA de início ou término da atividade
         var dadosFiltrados = this.dadosCronograma.filter(function(item) {
-            if (item.end === "Data Inválida" || item.end === "A definir") return false;
-            
-            var tInicio = that.parseDate(item.start) || that.parseDate(item.end);
-            var dInicio = new Date(tInicio);
-            var itemMes = ("0" + (dInicio.getMonth() + 1)).slice(-2);
-            var itemAno = dInicio.getFullYear();
-            
-            return (itemAno + '-' + itemMes === mesSelecionado);
+            if (item.competencia && item.competencia !== "") {
+                return item.competencia === mesSelecionado;
+            }
+            if (item.start && item.start !== "A definir" && item.start !== "Data Inválida") {
+                var tInicio = that.parseDate(item.start);
+                if (tInicio) {
+                    var dInicio = new Date(tInicio);
+                    var itemMes = ("0" + (dInicio.getMonth() + 1)).slice(-2);
+                    var itemAno = dInicio.getFullYear();
+                    return (itemAno + '-' + itemMes) === mesSelecionado;
+                }
+            }
+            return false;
         });
 
         if (this.activeOverdueMonthFilter === mesSelecionado) {
@@ -411,7 +414,7 @@ var WidgetCronograma = SuperWidget.extend({
         }
 
         if (dadosFiltrados.length === 0) {
-            var mensagemVazia = "Nenhuma atividade agendada fisicamente para este mês.";
+            var mensagemVazia = "Nenhuma atividade agendada ou com competência para este mês.";
             
             $tbody.append('<tr><td colspan="8" class="text-center" style="padding: 30px; color: #888;">' + mensagemVazia + '</td></tr>');
             $("#duracao-total-" + this.instanceId).text("0 dias");
@@ -479,7 +482,6 @@ var WidgetCronograma = SuperWidget.extend({
             var detalheAttr = temDetalhe ? ' data-tooltip="' + String(item.desc).replace(/"/g, '&quot;') + '"' : '';
             var iconeDetalhe = temDetalhe ? ' <i class="fa-regular fa-circle-question detail-hint"></i>' : '';
 
-            // Porém na hora de EXIBIR na tabela, puxa o texto real gravado no gestor.
             var labelCompetencia = "-";
             if (item.competencia) {
                 labelCompetencia = that.formatarCompetencia(item.competencia);
@@ -595,15 +597,19 @@ var WidgetCronograma = SuperWidget.extend({
             var dataTermino = new Date(termino);
             var chaveMesTermino = dataTermino.getFullYear() + "-" + ("0" + (dataTermino.getMonth() + 1)).slice(-2);
 
-            var tInicio = that.parseDate(item.start) || termino;
-            var dInicio = new Date(tInicio);
-            var chaveMesInicio = dInicio.getFullYear() + "-" + ("0" + (dInicio.getMonth() + 1)).slice(-2);
+            // CORREÇÃO: Força o redirecionamento para o mês da competência
+            var targetMes = item.competencia;
+            if (!targetMes || targetMes === "") {
+                var tInicio = that.parseDate(item.start) || termino;
+                var dInicio = new Date(tInicio);
+                targetMes = dInicio.getFullYear() + "-" + ("0" + (dInicio.getMonth() + 1)).slice(-2);
+            }
 
             if (!meses[chaveMesTermino]) {
                 meses[chaveMesTermino] = { total: 0, competencia: chaveMesTermino, tarefas: [] };
             }
             meses[chaveMesTermino].total++;
-            meses[chaveMesTermino].tarefas.push({ id: item.id, name: item.name, startMes: chaveMesInicio });
+            meses[chaveMesTermino].tarefas.push({ id: item.id, name: item.name, startMes: targetMes });
         });
 
         var chaves = Object.keys(meses).sort();
@@ -664,11 +670,17 @@ var WidgetCronograma = SuperWidget.extend({
             var dInicio = new Date(tInicio);
             var chaveMesInicio = dInicio.getFullYear() + "-" + ("0" + (dInicio.getMonth() + 1)).slice(-2);
 
+            // CORREÇÃO: Força o redirecionamento para o mês da competência
+            var targetMes = item.competencia;
+            if (!targetMes || targetMes === "") {
+                targetMes = chaveMesInicio;
+            }
+
             if (!meses[chaveMesInicio]) {
                 meses[chaveMesInicio] = { total: 0, competencia: chaveMesInicio, tarefas: [] };
             }
             meses[chaveMesInicio].total++;
-            meses[chaveMesInicio].tarefas.push({ id: item.id, name: item.name, startMes: chaveMesInicio });
+            meses[chaveMesInicio].tarefas.push({ id: item.id, name: item.name, startMes: targetMes });
         });
 
         var chaves = Object.keys(meses).sort();
@@ -945,11 +957,15 @@ var WidgetCronograma = SuperWidget.extend({
                     var time = dFim.getTime();
                     if (!that.eventDates[time]) { that.eventDates[time] = { steps: [], isStart: false, isEnd: true }; }
                     
-                    var tInicio = that.parseDate(item.start) || tFim;
-                    var dInicio = new Date(tInicio);
-                    var startMes = dInicio.getFullYear() + "-" + ("0" + (dInicio.getMonth() + 1)).slice(-2);
+                    // CORREÇÃO: O redirecionamento no clique deve ir para a aba da competência.
+                    var targetMes = item.competencia;
+                    if (!targetMes || targetMes === "") {
+                        var tInicio = that.parseDate(item.start) || tFim;
+                        var dInicio = new Date(tInicio);
+                        targetMes = dInicio.getFullYear() + "-" + ("0" + (dInicio.getMonth() + 1)).slice(-2);
+                    }
                     
-                    that.eventDates[time].steps.push({ id: item.id, name: item.name.replace(/\n/g, ' ').trim(), type: 'Vencimento', startMes: startMes });
+                    that.eventDates[time].steps.push({ id: item.id, name: item.name.replace(/\n/g, ' ').trim(), type: 'Vencimento', startMes: targetMes });
                 }
             }
         });
@@ -1006,12 +1022,19 @@ var WidgetCronograma = SuperWidget.extend({
             
             if (mesSelecionado) {
                 dadosAEnviar = this.dadosCronograma.filter(function(item) {
-                    if (item.end === "Data Inválida" || item.end === "A definir") return false;
-                    var tInicio = that.parseDate(item.start) || that.parseDate(item.end);
-                    var dInicio = new Date(tInicio);
-                    var itemMes = String(dInicio.getMonth() + 1).padStart(2, '0');
-                    var itemAno = dInicio.getFullYear();
-                    return (itemAno + '-' + itemMes === mesSelecionado);
+                    if (item.competencia && item.competencia !== "") {
+                        return item.competencia === mesSelecionado;
+                    }
+                    if (item.start && item.start !== "A definir" && item.start !== "Data Inválida") {
+                        var tInicio = that.parseDate(item.start);
+                        if (tInicio) {
+                            var dInicio = new Date(tInicio);
+                            var itemMes = ("0" + (dInicio.getMonth() + 1)).slice(-2);
+                            var itemAno = dInicio.getFullYear();
+                            return (itemAno + '-' + itemMes) === mesSelecionado;
+                        }
+                    }
+                    return false;
                 });
             }
             this.renderContextoGeral(dadosAEnviar);
